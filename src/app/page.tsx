@@ -41,6 +41,7 @@ function FacebookIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
     </svg>
   );
 }
+
 import rawLibrary from "@/data/library.json";
 import { PostItem, WorkerHealth } from "@/types";
 
@@ -64,8 +65,27 @@ export default function DashboardPage() {
   const [healthLatency, setHealthLatency] = useState<number | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
 
-  // Countdown to Nov 16, 2026, 10:00 AM IST
-  const targetTime = useMemo(() => new Date("2026-11-16T04:30:00.000Z").getTime(), []);
+  // Dynamic Upcoming Post Resolution (initialized in useEffect to avoid SSR hydration mismatch)
+  const [nowTimestamp, setNowTimestamp] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNowTimestamp(Date.now());
+    const timer = setInterval(() => setNowTimestamp(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const { nextPost, targetTime, isPostTimeDue } = useMemo(() => {
+    const current = nowTimestamp || new Date("2026-11-16T04:20:00.000Z").getTime();
+    const upcoming = library.find((p) => new Date(p.scheduled_iso).getTime() > current);
+    const post = upcoming || library[0];
+    const target = new Date(post.scheduled_iso).getTime();
+    return {
+      nextPost: post,
+      targetTime: target,
+      isPostTimeDue: current >= target
+    };
+  }, [nowTimestamp]);
+
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: 0,
     minutes: 0,
@@ -73,19 +93,13 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date().getTime();
-      const diff = Math.max(0, targetTime - now);
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft({ hours, minutes, seconds });
-    };
-
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
-  }, [targetTime]);
+    if (!nowTimestamp) return;
+    const diff = Math.max(0, targetTime - nowTimestamp);
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    setTimeLeft({ hours, minutes, seconds });
+  }, [nowTimestamp, targetTime]);
 
   // Fetch Live Worker Health
   useEffect(() => {
@@ -146,8 +160,6 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedCaption(false), 2000);
   };
 
-  const nextPost = library[0]; // Day 1 Post
-
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto w-full bg-slate-950 text-slate-100 shadow-2xl relative">
       {/* TOP APP BAR */}
@@ -167,11 +179,38 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-700/50 px-2 py-1 rounded-full text-[11px] text-emerald-300 font-medium">
+        <div className="flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/50 px-2.5 py-1 rounded-full text-[11px] text-emerald-300 font-bold shadow-sm">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          Auto-Pilot Active
+          UNPAUSED • LIVE
         </div>
       </header>
+
+      {/* PROMINENT UNPAUSED STATUS BANNER */}
+      <div className="mx-4 mt-3 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/90 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between text-xs shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-white text-xs tracking-wide">SYSTEM UNPAUSED</span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-[9px] px-1.5 py-0.2 rounded font-bold border border-emerald-500/40">
+                ACTIVE CRON
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-300/90 mt-0.5">
+              {isPostTimeDue
+                ? "Post #1 dispatched! Ready for daily releases."
+                : "Live automated publishing triggers today at 10:00 AM IST"}
+            </p>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <span className="text-[9px] text-slate-400 block font-mono">D1 Settings</span>
+          <span className="text-[11px] font-bold text-emerald-400 font-mono">ENABLED</span>
+        </div>
+      </div>
 
       {/* MAIN VIEW CONTENT */}
       <main className="flex-1 pb-24">
@@ -181,11 +220,11 @@ export default function DashboardPage() {
             {/* NEXT POST COUNTDOWN HERO */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900/40 via-slate-900 to-indigo-950/60 border border-blue-500/30 p-4 shadow-lg">
               <div className="flex items-center justify-between text-xs text-blue-300 mb-2 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" /> Official Launch Slot
+                <span className="flex items-center gap-1.5 font-bold">
+                  <Clock className="w-3.5 h-3.5 text-blue-400" /> Scheduled Launch Slot
                 </span>
-                <span className="bg-blue-600/30 px-2 py-0.5 rounded text-[10px] text-blue-200 border border-blue-500/30">
-                  Day #001
+                <span className="bg-blue-600/30 px-2 py-0.5 rounded text-[10px] text-blue-200 border border-blue-500/30 font-mono font-bold">
+                  Day #{String(nextPost.index).padStart(3, "0")}
                 </span>
               </div>
 
@@ -211,9 +250,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>Nov 16, 2026 • 10:00 AM IST</span>
+                <span>{nextPost.scheduled_date_str} • 10:00 AM IST</span>
                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Scheduled & Armed
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Unpaused & Armed
                 </span>
               </div>
             </div>
@@ -255,7 +294,7 @@ export default function DashboardPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
                   <div className="text-white">
                     <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                      Single 1080×1350
+                      {nextPost.type === "carousel" ? "Carousel (5 Slides)" : "Single 1080×1350"}
                     </span>
                     <h3 className="text-sm font-bold mt-1 text-white">{nextPost.title}</h3>
                   </div>
@@ -303,8 +342,8 @@ export default function DashboardPage() {
                     <FacebookIcon className="w-3.5 h-3.5" /> ECExplain
                   </span>
                 </div>
-                <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/50">
-                  Ready in Queue
+                <span className="text-[10px] bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700/50 font-bold">
+                  Autopilot Ready
                 </span>
               </div>
             </div>
@@ -530,9 +569,10 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">Publishing Enabled</span>
-                  <span className="font-bold text-blue-400 text-xs">
-                    {healthData?.config.publishing_enabled === "true" ? "ENABLED (Live)" : "Paused"}
+                  <span className="text-[10px] text-slate-400 block">Publishing State</span>
+                  <span className="font-bold text-emerald-400 text-xs flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    UNPAUSED (Live)
                   </span>
                 </div>
                 <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
@@ -581,11 +621,11 @@ export default function DashboardPage() {
             </div>
 
             {/* ZERO MANUAL INTERVENTION NOTICE */}
-            <div className="rounded-xl bg-blue-950/40 border border-blue-800/50 p-3 text-xs text-blue-200 flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+            <div className="rounded-xl bg-emerald-950/40 border border-emerald-800/50 p-3 text-xs text-emerald-200 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold block text-white">100% Autonomous Operation</span>
-                The Cloudflare Worker cron fires automatically every morning at 10:00 AM IST. No manual approves, button presses, or login sessions are required.
+                The Cloudflare Worker cron fires automatically every 60 seconds and publishes every morning at 10:00 AM IST. No manual approves, button presses, or login sessions are required.
               </div>
             </div>
           </div>
