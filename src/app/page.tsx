@@ -43,22 +43,31 @@ function FacebookIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
 }
 
 import rawLibrary from "@/data/library.json";
+import rawV3Library from "@/data/v3_library.json";
 import { PostItem, WorkerHealth } from "@/types";
 
 const library = rawLibrary as PostItem[];
+const v3Library = rawV3Library as PostItem[];
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"today" | "library" | "status">("today");
+  const [selectedVersion, setSelectedVersion] = useState<"v2" | "v3">("v3");
+  const [selectedSlot, setSelectedSlot] = useState<"all" | "morning" | "evening">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedType, setSelectedType] = useState<"all" | "single" | "carousel">("all");
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
 
+  const currentLibrary = useMemo(() => {
+    return selectedVersion === "v3" ? v3Library : library;
+  }, [selectedVersion]);
+
   // Slide Viewer Modal State
   const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [activePlatformCaption, setActivePlatformCaption] = useState<"instagram" | "facebook">("instagram");
 
   // Live System Health
   const [healthData, setHealthData] = useState<WorkerHealth | null>(null);
@@ -76,15 +85,15 @@ export default function DashboardPage() {
 
   const { nextPost, targetTime, isPostTimeDue } = useMemo(() => {
     const current = nowTimestamp || new Date("2026-11-16T04:20:00.000Z").getTime();
-    const upcoming = library.find((p) => new Date(p.scheduled_iso).getTime() > current);
-    const post = upcoming || library[0];
+    const upcoming = currentLibrary.find((p) => new Date(p.scheduled_iso).getTime() > current);
+    const post = upcoming || currentLibrary[0];
     const target = new Date(post.scheduled_iso).getTime();
     return {
       nextPost: post,
       targetTime: target,
       isPostTimeDue: current >= target
     };
-  }, [nowTimestamp]);
+  }, [nowTimestamp, currentLibrary]);
 
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: 0,
@@ -126,15 +135,15 @@ export default function DashboardPage() {
   // Filter Categories
   const categories = useMemo(() => {
     const set = new Set<string>();
-    library.forEach((p) => {
+    currentLibrary.forEach((p) => {
       if (p.category) set.add(p.category);
     });
     return Array.from(set).sort();
-  }, []);
+  }, [currentLibrary]);
 
   // Filtered Posts
   const filteredPosts = useMemo(() => {
-    return library.filter((p) => {
+    return currentLibrary.filter((p) => {
       const matchSearch =
         searchQuery === "" ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -145,10 +154,11 @@ export default function DashboardPage() {
 
       const matchCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchType = selectedType === "all" || p.type === selectedType;
+      const matchSlot = selectedSlot === "all" || p.slot === selectedSlot;
 
-      return matchSearch && matchCategory && matchType;
+      return matchSearch && matchCategory && matchType && matchSlot;
     });
-  }, [searchQuery, selectedCategory, selectedType]);
+  }, [currentLibrary, searchQuery, selectedCategory, selectedType, selectedSlot]);
 
   const paginatedPosts = useMemo(() => {
     return filteredPosts.slice(0, page * itemsPerPage);
@@ -210,6 +220,37 @@ export default function DashboardPage() {
           <span className="text-[9px] text-slate-400 block font-mono">D1 Settings</span>
           <span className="text-[11px] font-bold text-emerald-400 font-mono">ENABLED</span>
         </div>
+      </div>
+
+      {/* ENGINE SELECTOR (v2 LIVE QUEUE vs v3 PREVIEW) */}
+      <div className="mx-4 mt-2.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+        <button
+          onClick={() => {
+            setSelectedVersion("v2");
+            setPage(1);
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-center text-[11px] ${
+            selectedVersion === "v2"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          v2 Live (730)
+        </button>
+        <button
+          onClick={() => {
+            setSelectedVersion("v3");
+            setPage(1);
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-center text-[11px] flex items-center justify-center gap-1 ${
+            selectedVersion === "v3"
+              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Sparkles className="w-3 h-3 text-amber-300" />
+          v3 Dual Engine (1,460)
+        </button>
       </div>
 
       {/* MAIN VIEW CONTENT */}
@@ -391,7 +432,7 @@ export default function DashboardPage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="text"
-                placeholder="Search 730 posts (title, topic, #day)..."
+                placeholder={`Search ${currentLibrary.length} posts (title, topic, #day)...`}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -409,6 +450,45 @@ export default function DashboardPage() {
               )}
             </div>
 
+            {/* V3 SLOT FILTER */}
+            {selectedVersion === "v3" && (
+              <div className="flex gap-1 text-[11px] p-1 bg-slate-900 border border-slate-800 rounded-xl">
+                <button
+                  onClick={() => {
+                    setSelectedSlot("all");
+                    setPage(1);
+                  }}
+                  className={`flex-1 py-1 rounded-lg font-medium transition text-center ${
+                    selectedSlot === "all" ? "bg-slate-800 text-white font-bold" : "text-slate-400"
+                  }`}
+                >
+                  All ({currentLibrary.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedSlot("morning");
+                    setPage(1);
+                  }}
+                  className={`flex-1 py-1 rounded-lg font-medium transition text-center ${
+                    selectedSlot === "morning" ? "bg-blue-600/40 text-blue-300 font-bold border border-blue-500/40" : "text-slate-400"
+                  }`}
+                >
+                  Morning 10:00
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedSlot("evening");
+                    setPage(1);
+                  }}
+                  className={`flex-1 py-1 rounded-lg font-medium transition text-center ${
+                    selectedSlot === "evening" ? "bg-indigo-600/40 text-indigo-300 font-bold border border-indigo-500/40" : "text-slate-400"
+                  }`}
+                >
+                  Evening 18:30
+                </button>
+              </div>
+            )}
+
             {/* CATEGORY FILTER PILLS */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
               <button
@@ -422,7 +502,7 @@ export default function DashboardPage() {
                     : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
                 }`}
               >
-                All ({library.length})
+                All ({currentLibrary.length})
               </button>
               {categories.map((cat) => (
                 <button
@@ -464,7 +544,7 @@ export default function DashboardPage() {
                   selectedType === "single" ? "bg-slate-800 text-white font-medium" : ""
                 }`}
               >
-                Single (521)
+                Single ({currentLibrary.filter((p) => p.type === "single").length})
               </button>
               <button
                 onClick={() => {
@@ -475,7 +555,7 @@ export default function DashboardPage() {
                   selectedType === "carousel" ? "bg-slate-800 text-white font-medium" : ""
                 }`}
               >
-                Carousels (209)
+                Carousels ({currentLibrary.filter((p) => p.type === "carousel").length})
               </button>
             </div>
 
@@ -516,7 +596,7 @@ export default function DashboardPage() {
                     </div>
                     <h3 className="text-xs font-bold text-white truncate mt-0.5">{post.title}</h3>
                     <p className="text-[11px] text-slate-400 truncate">{post.hook}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       <span
                         className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
                           post.type === "carousel"
@@ -526,6 +606,17 @@ export default function DashboardPage() {
                       >
                         {post.type === "carousel" ? "5-Slide Carousel" : "Single Post"}
                       </span>
+                      {post.slot && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                            post.slot === "morning"
+                              ? "bg-amber-950 text-amber-300 border border-amber-800/40"
+                              : "bg-purple-950 text-purple-300 border border-purple-800/40"
+                          }`}
+                        >
+                          {post.slot === "morning" ? "10:00 Morning" : "18:30 Evening"}
+                        </span>
+                      )}
                     </div>
                   </div>
 

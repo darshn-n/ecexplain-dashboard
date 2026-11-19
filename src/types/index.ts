@@ -1,18 +1,24 @@
 export interface PostItem {
   id: string;
   index: number;
+  day_number?: number;
+  slot?: 'morning' | 'evening';
   title: string;
   category: string;
   type: 'single' | 'carousel';
   hook: string;
   caption: string;
+  caption_facebook?: string;
   hashtags: string[];
+  hashtags_facebook?: string[];
   cta: string;
   source_url: string;
   scheduled_date_str: string;
   scheduled_iso: string;
   day_name: string;
   images: string[];
+  status?: string;
+  quiz?: any;
 }
 
 export interface WorkerHealth {
