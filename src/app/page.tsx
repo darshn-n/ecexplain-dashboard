@@ -84,7 +84,7 @@ export default function DashboardPage() {
   }, []);
 
   const { nextPost, targetTime, isPostTimeDue } = useMemo(() => {
-    const current = nowTimestamp || new Date("2026-11-16T04:20:00.000Z").getTime();
+    const current = nowTimestamp || new Date("2026-11-19T05:30:00.000Z").getTime();
     const upcoming = currentLibrary.find((p) => new Date(p.scheduled_iso).getTime() > current);
     const post = upcoming || currentLibrary[0];
     const target = new Date(post.scheduled_iso).getTime();
