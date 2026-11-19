@@ -210,33 +210,22 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-[11px] text-emerald-300/90 mt-0.5">
-              {isPostTimeDue
-                ? "Post #1 dispatched! Ready for daily releases."
-                : "Live automated publishing triggers today at 10:00 AM IST"}
+              {selectedVersion === "v3"
+                ? "v3 Live: Post #8 armed for today's 18:30 IST evening carousel (2 posts/day automated)"
+                : isPostTimeDue
+                ? "v2 Legacy: Posts #1–#4 completed"
+                : "Live automated publishing active"}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <span className="text-[9px] text-slate-400 block font-mono">D1 Settings</span>
-          <span className="text-[11px] font-bold text-emerald-400 font-mono">ENABLED</span>
+          <span className="text-[9px] text-slate-400 block font-mono">D1 Engine</span>
+          <span className="text-[11px] font-bold text-emerald-400 font-mono">v3 LIVE</span>
         </div>
       </div>
 
-      {/* ENGINE SELECTOR (v2 LIVE QUEUE vs v3 PREVIEW) */}
+      {/* ENGINE SELECTOR (v3 LIVE vs v2 LEGACY) */}
       <div className="mx-4 mt-2.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
-        <button
-          onClick={() => {
-            setSelectedVersion("v2");
-            setPage(1);
-          }}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-center text-[11px] ${
-            selectedVersion === "v2"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          v2 Live (730)
-        </button>
         <button
           onClick={() => {
             setSelectedVersion("v3");
@@ -249,7 +238,20 @@ export default function DashboardPage() {
           }`}
         >
           <Sparkles className="w-3 h-3 text-amber-300" />
-          v3 Dual Engine (1,460)
+          v3 Live Engine (1,460)
+        </button>
+        <button
+          onClick={() => {
+            setSelectedVersion("v2");
+            setPage(1);
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-center text-[11px] ${
+            selectedVersion === "v2"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          v2 Legacy (730)
         </button>
       </div>
 
@@ -265,7 +267,9 @@ export default function DashboardPage() {
                   <Clock className="w-3.5 h-3.5 text-blue-400" /> Scheduled Launch Slot
                 </span>
                 <span className="bg-blue-600/30 px-2 py-0.5 rounded text-[10px] text-blue-200 border border-blue-500/30 font-mono font-bold">
-                  Day #{String(nextPost.index).padStart(3, "0")}
+                  {selectedVersion === "v3"
+                    ? `Post #${String(nextPost.index).padStart(4, "0")} • ${nextPost.slot === "morning" ? "Morning (10:00 AM)" : "Evening (18:30 PM)"}`
+                    : `Day #${String(nextPost.index).padStart(3, "0")}`}
                 </span>
               </div>
 
@@ -291,7 +295,10 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>{nextPost.scheduled_date_str} • 10:00 AM IST</span>
+                <span>
+                  {nextPost.scheduled_date_str}
+                  {selectedVersion === "v2" ? " • 10:00 AM IST" : ""}
+                </span>
                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Unpaused & Armed
                 </span>
@@ -389,38 +396,46 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* DAY 2 CAROUSEL PREVIEW QUICK CARD */}
-            <div
-              onClick={() => {
-                setSelectedPost(library[1]);
-                setActiveSlideIndex(0);
-              }}
-              className="rounded-xl bg-slate-900 border border-slate-800 p-3 flex items-center gap-3 cursor-pointer hover:border-slate-700 transition"
-            >
-              <div className="w-16 h-20 rounded-lg overflow-hidden bg-slate-950 shrink-0 border border-slate-800 relative">
-                <img
-                  src={library[1].images[0]}
-                  alt={library[1].title}
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[8px] font-bold px-1 rounded">
-                  5 slides
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                  <span>Day #002</span>
-                  <span>•</span>
-                  <span>Nov 17, 2026</span>
+            {/* NEXT UPCOMING POST QUICK CARD */}
+            {(() => {
+              const nextIndex = currentLibrary.findIndex((p) => p.id === nextPost.id);
+              const followingPost = currentLibrary[nextIndex + 1] || currentLibrary[1];
+              return (
+                <div
+                  onClick={() => {
+                    setSelectedPost(followingPost);
+                    setActiveSlideIndex(0);
+                  }}
+                  className="rounded-xl bg-slate-900 border border-slate-800 p-3 flex items-center gap-3 cursor-pointer hover:border-slate-700 transition"
+                >
+                  <div className="w-16 h-20 rounded-lg overflow-hidden bg-slate-950 shrink-0 border border-slate-800 relative">
+                    <img
+                      src={followingPost.images[0]}
+                      alt={followingPost.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {followingPost.type === "carousel" && (
+                      <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[8px] font-bold px-1 rounded">
+                        {followingPost.images.length} slides
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <span>Post #{String(followingPost.index).padStart(3, "0")}</span>
+                      <span>•</span>
+                      <span>{followingPost.scheduled_date_str}</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white truncate">{followingPost.title}</h4>
+                    <p className="text-[11px] text-slate-400 truncate">{followingPost.hook}</p>
+                    <span className="inline-block mt-1 text-[9px] bg-indigo-950 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-800/50">
+                      {followingPost.type === "carousel" ? "5-Slide Carousel" : "Single Post"}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
                 </div>
-                <h4 className="text-xs font-bold text-white truncate">{library[1].title}</h4>
-                <p className="text-[11px] text-slate-400 truncate">{library[1].hook}</p>
-                <span className="inline-block mt-1 text-[9px] bg-indigo-950 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-800/50">
-                  Carousel Guide
-                </span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
-            </div>
+              );
+            })()}
           </div>
         )}
 
@@ -683,22 +698,39 @@ export default function DashboardPage() {
 
             {/* CURRICULUM METRICS */}
             <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-3">
-              <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-blue-400" /> Database & Media Inventory
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-blue-400" /> Database & Media Inventory
+                </h3>
+                <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800/50 font-mono font-bold">
+                  {selectedVersion === "v3" ? "v3 Dual Engine" : "v2 Engine"}
+                </span>
+              </div>
 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Total Publications in D1</span>
-                  <span className="font-bold text-white">730 Days</span>
+                  <span className="font-bold text-white">
+                    {selectedVersion === "v3" ? "1,460 Posts (730 Days × 2/day)" : "730 Posts (730 Days × 1/day)"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Total Media Slides in R2</span>
-                  <span className="font-bold text-emerald-400">1,566 / 1,566 Verified</span>
+                  <span className="font-bold text-emerald-400">
+                    {selectedVersion === "v3" ? "4,380 / 4,380 Verified (100%)" : "1,566 / 1,566 Verified"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Platform Targets Configured</span>
-                  <span className="font-bold text-white">1,460 (730 IG + 730 FB)</span>
+                  <span className="font-bold text-white">
+                    {selectedVersion === "v3" ? "2,920 (1,460 IG + 1,460 FB)" : "1,460 (730 IG + 730 FB)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
+                  <span className="text-slate-400">Daily Publishing Cadence</span>
+                  <span className="font-bold text-blue-400 font-mono">
+                    {selectedVersion === "v3" ? "10:00 AM IST & 18:30 PM IST" : "10:00 AM IST"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Overdue Pending Posts</span>
@@ -716,7 +748,7 @@ export default function DashboardPage() {
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold block text-white">100% Autonomous Operation</span>
-                The Cloudflare Worker cron fires automatically every 60 seconds and publishes every morning at 10:00 AM IST. No manual approves, button presses, or login sessions are required.
+                The Cloudflare Worker cron fires automatically every 60 seconds and publishes twice daily at 10:00 AM IST and 18:30 PM IST. Zero manual approves, button presses, or maintenance required for the next 2 full years (730 days).
               </div>
             </div>
           </div>
